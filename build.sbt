@@ -1,6 +1,9 @@
 scalaVersion := "2.11.8"
 
-libraryDependencies += "org.scalatest" %% "scalatest" % "3.0.0" % "test"
+libraryDependencies ++= Seq(
+  "com.github.nscala-time" %% "nscala-time" % "2.14.0",
+  "org.scalatest" %% "scalatest" % "3.0.0" % "test"
+)
 
 initialCommands in console := """
   import functors._
