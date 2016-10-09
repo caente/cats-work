@@ -19,4 +19,5 @@ object Monoid{
     def zero = List.empty[A]
     def op(l1:List[A], l2:List[A])  = l1 ++ l2
   }
+
 }

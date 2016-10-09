@@ -7,9 +7,9 @@ import monoids._
 class AdjointSuite extends FunSuite {
 
   implicit object listAdjoint extends Adjoint[List, Monoid] {
-    def adjoint[A,B](f: A => B)(gfa:Monoid[List[A]], mb:Monoid[B]): List[A] => B = {
+    def adjoint[A,B](f: A => B)( mb:Monoid[B]): List[A] => B = {
       case Nil =>  mb.zero
-      case x :: xs => mb.op(f(x), adjoint(f)(gfa, mb)(xs) )
+      case x :: xs => mb.op(f(x), adjoint(f)(mb)(xs) )
     }
   }
 

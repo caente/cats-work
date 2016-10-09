@@ -24,7 +24,7 @@ case class Cat(name: String)
 class PetStoreTests extends FunSuite{
 
   implicit object petAdjoint extends Adjoint[PetStatus, PetOwnership]{
-    def adjoint[A,B](f: A => B)(gfa: PetOwnership[PetStatus[A]], gb:PetOwnership[B]): PetStatus[A] => B = {
+    def adjoint[A,B](f: A => B)(gb:PetOwnership[B]): PetStatus[A] => B = {
      case Sold(address) => ???
      case InShelter() => ???
     }
