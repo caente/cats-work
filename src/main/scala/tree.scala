@@ -2,6 +2,7 @@ package common
 
 import cats._
 import cats.syntax.eq._
+import cats.syntax.functor._
 
 package object graph {
   type Graph[A] = List[Node[A]]
@@ -10,9 +11,13 @@ package object graph {
     def innerMap[A, B](fa: F[G[A]])(f: A => B): F[G[B]]
   }
 
-  implicit object graphInnerMap extends InnerMap[List, Node] {
-    def innerMap[A, B](fa: List[Node[A]])(f: A => B): List[Node[B]] =
+  implicit def functorFunctorInnerMap[F[_]: Functor, G[_]: Functor] = new InnerMap[F, G] {
+    def innerMap[A, B](fa: F[G[A]])(f: A => B): F[G[B]] =
       fa.map(_.map(f))
+  }
+
+  implicit object nodeFunctor extends Functor[Node] {
+    def map[A, B](n: Node[A])(f: A => B): Node[B] = n.map(f)
   }
 
   implicit class InnerMapSyntax[F[_], G[_], A](v: F[G[A]]) {
@@ -20,6 +25,9 @@ package object graph {
   }
 
   case class Node[A](value: A, children: Graph[A]) {
+
+    def adjacent: List[A] = children.map(_.value)
+
     def map[B](f: A => B): Node[B] = Node(
       value = f(value),
       children = children.map(_.map(f))
@@ -37,12 +45,15 @@ package object graph {
   object Graph {
 
     def create[A: Eq](elements: List[A])(relation: (A, A) => Boolean): Graph[A] = {
-      elements.sortWith(relation) match {
-        case Nil => Nil
-        case x :: xs =>
-          val (adjacents, orphans) = xs.partition(e => x =!= e && relation(x, e))
-          Node(x, create(adjacents)(relation)) :: create(orphans)(relation)
+      def loop(els: List[A]): Graph[A] = {
+        els match {
+          case Nil => Nil
+          case x :: xs =>
+            val (adjacents, orphans) = xs.partition(e => x =!= e && relation(x, e))
+            Node(x, loop(adjacents)) :: loop(orphans)
+        }
       }
+      loop(elements.sortWith(relation))
     }
   }
 
