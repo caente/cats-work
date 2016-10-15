@@ -8,10 +8,11 @@ libraryDependencies ++= Seq(
 )
 
 initialCommands in console := """
-  import functors._
-  import adjoints._
-  import monoids._
   import meetings._
   import Intention._
-  import Adjoint.Syntax
+  import cats._
+  import cats.syntax.eq._
+  import cats.syntax.functor._
+  import cats.instances.all._
+  import common.graph._
   """

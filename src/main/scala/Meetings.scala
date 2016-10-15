@@ -58,8 +58,9 @@ object Intention {
   val broker = Participant("broker")
   val a = Participant("a")
   val b = Participant("b")
+  val c = Participant("c")
 
-  case class Email(from: Participant, to: Participant = broker, entity: Intention[Time], timestamp: DateTime)
+  case class Email(from: Participant, tos: List[Participant] = List(broker), entity: Intention[Time], timestamp: DateTime)
 
   trait GetValue[A] {
     def value: A
@@ -67,33 +68,20 @@ object Intention {
   val now = DateTime.now
   val time = Time(now.plusDays(1))
   val emails: List[Email] = List(
-    Email(from = a, to = b, entity = Propose(time), timestamp = now.minusDays(4)),
+    Email(from = broker, tos = List(a, b), entity = Propose(time), timestamp = now.minusDays(4)),
     Email(from = b, entity = Accept(time), timestamp = now.minusDays(3)),
-    Email(from = broker, to = b, entity = Decline(time), timestamp = now.minusDays(2))
+    Email(from = c, entity = Decline(time), timestamp = now.minusDays(2))
   )
 
-  val entities: List[Comunication[Intention[Time]]] = emails.map(e => if (e.from == broker) Sent(e.entity, e.to, e.timestamp) else Received(e.entity, e.from, e.timestamp))
+  import cats._
+  import cats.syntax.eq._
+  import cats.syntax.functor._
+  import cats.instances.all._
+  import common.graph._
 
-  //  val folded = entities.reduce((e1,e2) => e1.before(e2) )
-  val entity: Sent[Decline[Received[Accept[Sent[Propose[Time]]]]]] = Sent(
-    a = Decline(
-      a = Received(
-        a = Accept(
-          a = Sent(
-            a = Propose(
-              a = time
-            ),
-            to = b,
-            timestamp = now.minusDays(4)
-          )
-        ),
-        from = b,
-        timestamp = now.minusDays(3)
-      )
-    ),
-    to = b,
-    timestamp = now.minusDays(2)
-  )
+  implicit val eqEmail = Eq.fromUniversalEquals[Email]
+
+  val graphEmails = Graph.create(emails)((e1, e2) => e2.tos.contains(e1.from))
 
 }
 
