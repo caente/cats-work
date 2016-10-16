@@ -6,6 +6,7 @@ import cats.syntax.functor._
 import cats.instances.all._
 import cats.data.Xor
 import collection.immutable.HashMap
+import cats.syntax.foldable._
 
 package object graph {
   type Graph[A] = HashMap[A, List[A]]
@@ -51,17 +52,11 @@ package object graph {
     def dfs[B](a: A)(z: B)(f: (A, B) => B)(implicit m: Monoid[B]): B =
       adjacents(a) match {
         case Nil => z
-        case xs => xs.map { x => dfs(x)(f(x, z))(f) }.foldLeft(m.empty)(m.combine(_, _))
+        case xs => xs.foldMap { x => dfs(x)(f(x, z))(f) }
       }
 
-    def connectedWith(f: A => Boolean): List[A] = {
-      def dfs(a: A, acc: List[A]): List[A] =
-        adjacents(a) match {
-          case Nil => acc
-          case xs => xs.flatMap(x => dfs(x, x :: acc))
-        }
-      data.keys.filter(f).flatMap(a => dfs(a, Nil)).toList
-    }
+    def connectedWith(f: A => Boolean): List[A] =
+      nodes.filter(f).flatMap(a => dfs(a)(List.empty[A])(_ :: _))
 
     def truncateBy(f: A => Boolean): DirectedGraph[A] = {
       val connected = nodes.filter(f).flatMap(a => connectedWith(_ === a))
