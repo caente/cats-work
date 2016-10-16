@@ -81,7 +81,5 @@ object Intention {
 
   implicit val eqEmail = Eq.fromUniversalEquals[Email]
 
-  val graphEmails = Graph.create(emails)((e1, e2) => e2.tos.contains(e1.from))
-
 }
 
