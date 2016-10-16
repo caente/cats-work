@@ -49,16 +49,16 @@ package object graph {
         data.map { case (a, as) => f(a) -> as.map(f) }
       )
 
-    def dfs[B](a: A)(z: B)(f: (A, B) => B)(implicit m: Monoid[B]): B =
+    private def dfs[B](a: A)(z: B)(f: (A, B) => B)(implicit m: Monoid[B]): B =
       adjacents(a) match {
         case Nil => z
         case xs => xs.foldMap { x => dfs(x)(f(x, z))(f) }
       }
 
     def connectedWith(f: A => Boolean): List[A] =
-      nodes.filter(f).flatMap(a => dfs(a)(List.empty[A])(_ :: _))
+      nodes.filter(f).flatMap(a => dfs(a)(List.empty[A])(_ :: _)).distinct
 
-    def truncateBy(f: A => Boolean): DirectedGraph[A] = {
+    def withRoot(f: A => Boolean): DirectedGraph[A] = {
       val connected = nodes.filter(f).flatMap(a => connectedWith(_ === a))
       DirectedGraph(
         data.filter {
