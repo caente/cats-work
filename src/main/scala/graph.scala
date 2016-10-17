@@ -5,7 +5,7 @@ import cats.syntax.eq._
 import cats.syntax.functor._
 import cats.instances.all._
 import cats.data.Xor
-import collection.immutable.HashMap
+import collection.immutable.{ HashMap, HashSet }
 import cats.syntax.foldable._
 
 package object graph {
@@ -35,9 +35,11 @@ package object graph {
 
     def adjacents(a: A): List[A] = data.get(a).toList.flatten
 
-    def nodes = data.keys.toList
-
-    def last: List[A] = data.filter(_._2.isEmpty).keys.toList
+    lazy val (initials, finals, nodes) = data.keys.toList.foldLeft((List.empty[A], List.empty[A], List.empty[A])) {
+      case ((initials, finals, nodes), a) if adjacents(a).isEmpty => (initials, a :: finals, a :: nodes)
+      case ((initials, finals, nodes), a) if data.values.forall(!_.exists(_ === a)) => (a :: initials, finals, a :: nodes)
+      case ((initials, finals, nodes), a) => (initials, finals, a :: nodes)
+    }
 
     def filter(f: A => Boolean): DirectedGraph[A] =
       DirectedGraph(
@@ -49,17 +51,31 @@ package object graph {
         data.map { case (a, as) => f(a) -> as.map(f) }
       )
 
-    private def dfs[B](a: A)(z: B)(f: (A, B) => B)(implicit m: Monoid[B]): B =
-      adjacents(a) match {
-        case Nil => z
-        case xs => xs.foldMap { x => dfs(x)(f(x, z))(f) }
+    lazy val nodesSorted: List[A] = {
+      def dfs[B](ns: List[A], s: List[A], z: HashSet[A]): (List[A], HashSet[A]) = {
+        ns match {
+          case Nil => (s, z)
+          case x :: xs if z.contains(x) => dfs(xs, s, z)
+          case x :: xs =>
+            val (sorted, visited) = dfs(adjacents(x), s, z + x)
+            dfs(xs, x :: sorted, visited)
+        }
       }
 
-    def connectedWith(f: A => Boolean): List[A] =
-      nodes.filter(f).flatMap(a => dfs(a)(List.empty[A])(_ :: _)).distinct
+      val (sorted, _) = nodes.foldLeft((List.empty[A], HashSet.empty[A])) {
+        case ((sorted, visited), a) => dfs(List(a), sorted, visited)
+      }
+      sorted
+    }
 
-    def withRoot(f: A => Boolean): DirectedGraph[A] = {
-      val connected = nodes.filter(f).flatMap(a => connectedWith(_ === a))
+    def fromNode(f: A => Boolean): DirectedGraph[A] = {
+      def dfs[B](a: A, z: List[A] = Nil): List[A] = {
+        adjacents(a) match {
+          case Nil => z
+          case xs => xs.foldMap { x => dfs(x, x :: z) }
+        }
+      }.distinct
+      val connected = nodes.filter(f).flatMap(dfs(_))
       DirectedGraph(
         data.filter {
           case (a, _) => f(a) || connected.exists(_ === a)
@@ -86,8 +102,9 @@ package object graph {
 
   }
 
-  val ls = (1 to 100).toList
-  val g = DirectedGraph(ls)((a1, a2) => a1 >= a2 && a1 % a2 == 2)
+  val ls = (1 to 10).toList
+  val relation: (Int, Int) => Boolean = (a1, a2) => a1 >= a2 && a2 % 2 == 0 || a2 == 1
+  val g = DirectedGraph(ls)(relation)
   val gr = g.getOrElse(throw new Exception())
 
 }
