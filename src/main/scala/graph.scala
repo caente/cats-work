@@ -17,6 +17,8 @@ package object graph {
     def addEdge[A](start: A, end: A, ds: Graph[A]): Graph[A] =
       ds.updated(start, ds.getOrElse(start, Nil) :+ end)
 
+    def empty[A] = HashMap.empty[A, List[A]]
+
     def disconnected[A](as: List[A]) = HashMap(as.map(_ -> Nil): _*)
 
     def hasCycle[A: Eq](data: Graph[A]): List[A] = {
@@ -51,37 +53,28 @@ package object graph {
         data.map { case (a, as) => f(a) -> as.map(f) }
       )
 
-    lazy val nodesSorted: List[A] = {
-      def dfs[B](ns: List[A], s: List[A], z: HashSet[A]): (List[A], HashSet[A]) = {
-        ns match {
-          case Nil => (s, z)
-          case x :: xs if z.contains(x) => dfs(xs, s, z)
-          case x :: xs =>
-            val (sorted, visited) = dfs(adjacents(x), s, z + x)
-            dfs(xs, x :: sorted, visited)
-        }
+    def dfs[B](ns: List[A], s: B, z: HashSet[A])(f: (A, B) => B): (B, HashSet[A]) = {
+      ns match {
+        case Nil => (s, z)
+        case x :: xs if z.contains(x) => dfs(xs, s, z)(f)
+        case x :: xs =>
+          val (result, visited) = dfs(adjacents(x), s, z + x)(f)
+          dfs(xs, f(x, result), visited)(f)
       }
+    }
 
+    lazy val nodesSorted: List[A] = {
       val (sorted, _) = nodes.foldLeft((List.empty[A], HashSet.empty[A])) {
-        case ((sorted, visited), a) => dfs(List(a), sorted, visited)
+        case ((sorted, visited), a) => dfs(List(a), sorted, visited)(_ :: _)
       }
       sorted
     }
 
     def fromNode(f: A => Boolean): DirectedGraph[A] = {
-      def dfs[B](a: A, z: List[A] = Nil): List[A] = {
-        adjacents(a) match {
-          case Nil => z
-          case xs => xs.foldMap { x => dfs(x, x :: z) }
-        }
-      }.distinct
-      val connected = nodes.filter(f).flatMap(dfs(_))
-      DirectedGraph(
-        data.filter {
-          case (a, _) => f(a) || connected.exists(_ === a)
-        }
-      )
+      val (graph, _) = dfs(nodes.filter(f), Graph.empty[A], HashSet.empty)((a, gr) => gr.updated(a, adjacents(a)))
+      DirectedGraph(graph)
     }
+
     override def toString = data.map {
       case (a, as) => s"$a -> ${as.mkString(", ")}"
     }.mkString("\n")
@@ -102,7 +95,7 @@ package object graph {
 
   }
 
-  val ls = (1 to 10).toList
+  val ls = (1 to 100).toList
   val relation: (Int, Int) => Boolean = (a1, a2) => a1 >= a2 && a2 % 2 == 0 || a2 == 1
   val g = DirectedGraph(ls)(relation)
   val gr = g.getOrElse(throw new Exception())
